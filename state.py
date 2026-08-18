@@ -4,6 +4,7 @@ class AgentState(TypedDict):
     task : str #user input 
     plan : str
     code : str
+    tests : str #llm will write its own test cases to validate the code it wrote
     output : str
     error : str
     error_history : list[str]

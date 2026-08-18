@@ -1,24 +1,29 @@
 from llm import llm , MODEL_NAME
 import re
 
-system_prompt = f"""You are an expert Python software engineer.
+system_prompt = f"""You are an expert software engineer.
 
 You will be given a task and a plan. You may also be given code you 
 wrote previously along with a history of errors it has produced across 
 attempts — if so, use that history to avoid repeating past mistakes 
 and fix the code.
 
-Write the complete, runnable Python code to solve the task.
-The script must actually execute the solution and print visible output 
-when run directly — do not just define functions without calling them, 
-and do not comment out any code that should run.
-Do not include any explanation — return only the code.
+Your job is to:
+1. Write the complete solution code in a file called solution.py
+2. Write pytest test cases for that solution in a file called test_solution.py
+   The tests must import from solution.py (e.g., "from solution import function_name")
+   and check that the code behaves correctly, including edge cases.
 
-Return your response in this exact format:
+Return your response in this exact format, with no other text:
 
-CODE:
+SOLUTION:
 ```python
-<your complete code>
+<your complete solution code>
+```
+
+TESTS:
+```python
+<your complete pytest test code>
 ```
 
 """
@@ -32,7 +37,7 @@ def build_user_prompt(state):
         msg += (
             f"\n\n Previous code : \n {state['code']}"
             f"\n\n History of all errors:\n {history_text}"
-            f"\n\n Please fix the code taking into account the full error history so you don't return a previously solved bug and return the complete runnable code in the format specified in the system prompt"
+            f"\n\n fix the solution and/ or tests , taking into account the full error history so you don't reintroduce the previously fixed bugs"
         )
     return msg
 
@@ -45,11 +50,17 @@ in the LLM response the code wills start from ``` so the function will look for 
 s* - whitespace characters, zero or more
 (.*?) - capture group for the code itself, non-greedy match
 ``` - closing backticks"""
-def parse_code(output:str) -> str:
-    """will parse the code from output"""
-    match = re.search(r"```(?:\w+)?\s*(.*?)```", output, re.DOTALL)
-    code = match.group(1) if match else output.strip()
-    return code
+
+def parse_response(response : str):
+    """to extract solution and test code from the LLM response"""
+    solution_match= re.search(r"SOLUTION:\s*```(?:\w+)?\s*(.*?)```", response, re.DOTALL)
+    tests_match = re.search(r"TESTS:\s*```(?:\w+)?\s*(.*?)```", response, re.DOTALL)
+
+    solution = solution_match.group(1) if solution_match else None
+    tests = tests_match.group(1) if tests_match else None
+    if not solution or not tests:
+        raise ValueError(f"Could not find solution or tests in the response.: \n {response}")
+    return solution, tests
 
 """main coder function that will write the code given the user prompt and system prompt"""
 def coder(state):
@@ -63,6 +74,7 @@ def coder(state):
         temperature=0
     )
     output = response.choices[0].message.content
-    code = parse_code(output)
-    state["code"] = code
+    solution, tests = parse_response(output)
+    state["code"] = solution
+    state["tests"] = tests
     return state

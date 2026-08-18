@@ -6,17 +6,22 @@ import subprocess
 import os 
 import uuid
 
-code_filename = "generated_code.py"
+SOLUTION_FILENAME = "solution.py"
+TESTS_FILENAME = "test_solution.py"
 DOCKER_IMAGE_NAME = "autodev-sandbox"
-timeout_secs = 10
+timeout_secs = 15
 
 def executor(state):
     #save code to file 
-    with open(code_filename, "w") as f:
+    with open(SOLUTION_FILENAME, "w") as f:
         f.write(state["code"])
 
+    with open(TESTS_FILENAME, "w") as f:
+        f.write(state["tests"])
+
     #building full path to mount on docker 
-    host_path = os.path.abspath(code_filename)
+    solution_host_path = os.path.abspath(SOLUTION_FILENAME)
+    tests_host_path = os.path.abspath(TESTS_FILENAME)
     container_name = f"autodev-run-{uuid.uuid4().hex[:8]}"  # Generate a unique container name
     try:
         result = subprocess.run(
@@ -28,7 +33,8 @@ def executor(state):
                 "--network", "none",
                 "--memory", "512m",
                 "--cpus", "1",
-                "-v", f"{host_path}:/app/code.py",
+                "-v", f"{solution_host_path}:/app/solution.py",
+                "-v", f"{tests_host_path}:/app/test_solution.py",
                 DOCKER_IMAGE_NAME,
             ],
             capture_output=True,
@@ -42,7 +48,7 @@ def executor(state):
 
         else:
             state["success"] = False
-            state["error"] = result.stderr
+            state["error"] = result.stdout+result.stderr
             state["output"] = ""
 
     except subprocess.TimeoutExpired:

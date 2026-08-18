@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .env
 generated_code.py
+solution.py
+test_solution.py

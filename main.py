@@ -53,6 +53,7 @@ if __name__ == "__main__":
         "task": input("Enter your task: "),
         "plan": "",
         "code": "",
+        "tests": "",
         "output": "",
         "error": "",
         "error_history": [],
