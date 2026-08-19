@@ -1,0 +1,10 @@
+name,age,email,city,salary,join_date
+Alice,28,alice@email.com,New York,75000,2021-03-15
+Bob,,bob@email.com,Los Angeles,62000,2020-07-01
+Charlie,35,charlie@email.com,Chicago,not_available,2019-11-20
+Alice,28,alice@email.com,New York,75000,2021-03-15
+David,42,,Boston,88000,invalid_date
+Eve,29,eve@email.com,,71000,2022-01-10
+Frank,-5,frank@email.com,Seattle,68000,2020-05-05
+Grace,31,grace@email.com,New York,999999,2021-08-22
+Henry,150,henry@email.com,Chicago,59000,2022-02-28
