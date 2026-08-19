@@ -5,3 +5,4 @@ __pycache__/
 generated_code.py
 solution.py
 test_solution.py
+sample_data.csv
