@@ -1,2 +1,6 @@
-pytest 
+streamlit
+langgraph
+openai
+python-dotenv
+pytest
 pandas
