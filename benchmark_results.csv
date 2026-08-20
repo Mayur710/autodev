@@ -1,0 +1,19 @@
+task,difficulty,success,retries,time_seconds
+Write a function that checks if a number is prime.,easy,True,1,79.6
+Write a function that reverses a string.,easy,True,1,13.05
+Write a function that returns the factorial of a non-negative integer; raise a ValueError for negative input.,easy,True,0,7.66
+"Write a function that counts vowels (a, e, i, o, u, case-insensitive) in a string.",easy,True,0,5.64
+Write a function that returns the maximum value in a list of numbers; raise a ValueError if the list is empty.,easy,True,0,6.58
+"Write a function that checks if a string is a palindrome, ignoring case and spaces.",easy,True,1,39.74
+Write a function that returns the nth Fibonacci number using memoization.,medium,True,0,22.07
+Write a function that merges two sorted lists into one sorted list.,medium,True,0,14.23
+"Write a function that counts the frequency of each word in a given text, case-insensitive and ignoring punctuation.",medium,True,0,25.91
+"Write a function that validates whether a string is a plausible email: exactly one '@', at least one '.' after the '@', and no spaces.",medium,True,1,105.59
+"Write a function that finds all pairs of values in a list (assume no duplicate values) that sum to a target, returning a list of value pairs.",medium,True,1,48.83
+Write a function that flattens a nested list of arbitrary depth.,medium,True,0,12.09
+Write a function that removes all duplicate characters from a string while preserving order.,medium,True,1,19.7
+Write a function that implements binary search on a sorted list.,hard,True,0,15.13
+Write a function that detects if a linked list has a cycle. Define a simple Node class first.,hard,True,0,13.39
+"Read sample_data.csv with pandas, remove duplicates, coerce invalid salary entries to NaN, and print a summary.",hard,True,1,77.68
+"Read sample_data.csv, add an age_valid boolean column flagging ages outside 0-120 without removing rows, and print a summary.",hard,False,-1,1.79
+Write a function that finds the longest common subsequence between two strings.,hard,False,-1,1.5
