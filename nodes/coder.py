@@ -74,7 +74,14 @@ def coder(state):
         temperature=0
     )
     output = response.choices[0].message.content
-    solution, tests = parse_response(output)
-    state["code"] = solution
-    state["tests"] = tests
+    try:
+        solution, tests = parse_response(output)
+        state["code"] = solution
+        state["tests"] = tests
+
+    #treating value error as a failure to parse and not a crash 
+    except ValueError as e:
+        state["code"] = ""
+        state["tests"] = ""
+    
     return state
