@@ -47,7 +47,7 @@ State is tracked through a single `AgentState` object (task, plan, code, tests, 
 |---|---|
 | Language | Python |
 | Agent orchestration | LangGraph |
-| LLM | OpenRouter (free-tier models, OpenAI-compatible API) |
+| LLM | OpenRouter — `nvidia/nemotron-3.5-lightning:free` (OpenAI-compatible API) |
 | Sandboxed execution | Docker, with a host-subprocess fallback |
 | Testing / evaluation | pytest |
 | Front-end | Streamlit |
@@ -58,20 +58,27 @@ State is tracked through a single `AgentState` object (task, plan, code, tests, 
 
 ## Benchmark results
 
-Ran 18 tasks (6 easy, 7 medium, 5 hard) through the full agent pipeline, from single-function algorithms to multi-step CSV cleaning.
+18 tasks (6 easy, 7 medium, 5 hard), from single-function algorithms to multi-step CSV cleaning, with function signatures and edge-case behavior pinned in each prompt.
 
-- **16/16 attempted tasks passed (100%)**
-- **2 tasks not attempted** — blocked by OpenRouter's free-tier daily rate limit (50 requests/day) partway through the run
-- **Average retries per task:** 0.39
-- **Average time per task:** ~28s
+**How grading works.** The agent still self-corrects against the tests it writes itself — that loop is the architecture. But benchmark pass/fail is decided by a **held-out, human-written oracle suite** (`tests/oracle/`) the model never sees: grading runs *after* the agent finishes, so oracle failures are never fed back into its retry loop. Attempt-1 code is snapshotted separately, which makes true pass@1 measurable. The oracle itself is validated by `validate_oracle.py` (no LLM, no API quota): all 18 reference solutions pass it, and both planted bugs — a pandas copy-on-write no-op and a row-dropping filter — are caught.
 
-| Difficulty | Result |
+| Metric | Result |
 |---|---|
-| Easy | 6/6 passed |
-| Medium | 7/7 passed |
-| Hard | 3/5 passed (2 unattempted due to rate limit — 0 genuine failures) |
+| **Oracle pass@1** — attempt-1 code vs held-out tests | **18/18** |
+| **Oracle final** — final code vs held-out tests | **18/18** |
+| Agent's own self-tests green | 15/18 |
+| Average retries per task | 0.50 (9 retries on 3 tasks) |
+| Average time per task | ~58s |
 
-**Known limitation:** free-tier LLM APIs impose daily request caps that a full benchmark run can exhaust mid-way. This is a real constraint of building on free infrastructure, documented here rather than hidden. In a paid deployment this ceiling disappears.
+| Difficulty | Oracle pass@1 | Oracle final |
+|---|---|---|
+| Easy | 6/6 | 6/6 |
+| Medium | 7/7 | 7/7 |
+| Hard | 5/5 | 5/5 |
+
+**The interesting number is the disagreement: 3/18 (17%).** On `word_frequency`, `two_sum` and `clean_csv`, the agent exhausted all 3 retries against *its own* tests while attempt-1 code already passed the held-out oracle — in each case the self-written test was wrong, not the code (verified by replaying the snapshots against the oracle). Self-grading has now been observed failing in **both directions**: agreeing with wrong code (the `flag_ages` case below) and rejecting correct code (this run). That disagreement is the measured cost of self-graded evaluation, and it's why the benchmark grades externally.
+
+*Model: `nvidia/nemotron-3.5-lightning:free` via OpenRouter, temperature 0. Originally `nvidia/nemotron-3-super-120b-a12b:free`, until Nvidia's free endpoint began returning provider-side 404s mid-project — switching was a one-line change in `llm.py`. Free-tier daily request caps (50/day) still bound how often a full run can be repeated.*
 
 ---
 
@@ -92,7 +99,10 @@ The model once wrote fully correct code but left the actual function call commen
 Code can run cleanly and still be wrong. A recurring pandas bug — `df[col].fillna(value, inplace=True)` silently failing to update the dataframe due to copy-on-write — produced a "successful" run with unchanged data multiple times. Only pytest-based assertions, which check actual data state rather than just completion, caught this.
 
 ### Self-graded tests can encode contradictory requirements
-When the Coder writes its own tests, ambiguous task phrasing can produce a solution and a test that disagree with each other. One task asked the agent to *"flag"* out-of-range ages; the Coder correctly kept the rows and flagged them, but its own test then asserted no invalid ages could remain — a contradiction that exhausted all retries, because the problem was in the specification, not the code. Rephrasing the task removed the ambiguity and it passed on the very next attempt. This is a concrete case for externally-supplied test cases over self-graded ones in a stronger, production version of this system.
+When the Coder writes its own tests, ambiguous task phrasing can produce a solution and a test that disagree with each other. One task asked the agent to *"flag"* out-of-range ages; the Coder correctly kept the rows and flagged them, but its own test then asserted no invalid ages could remain — a contradiction that exhausted all retries, because the problem was in the specification, not the code. Rephrasing the task removed the ambiguity and it passed on the very next attempt. **This finding is what motivated the held-out oracle suite that now grades the benchmark (see below).**
+
+### Self-grading and held-out grading disagree — measured
+The first oracle-graded benchmark made the circular-validation problem *measurable*: on 3 of 18 tasks the agent exhausted all retries against its own tests while attempt-1 code already passed the human-written oracle (`word_frequency`, `two_sum`, `clean_csv` — all replayed and confirmed by hand). That's a 17% false-alarm rate: 9 wasted retries and ~9.5 minutes of wall-clock chasing correct code. Combined with the `flag_ages` case above — self-test agreeing with *wrong* code — self-graded evaluation has now been observed failing in both directions. Reporting both graders side by side (`self_success` vs `oracle_pass1`) is the fix.
 
 ### The architecture genuinely generalizes
 Pointing the exact same graph — same five nodes, same routing logic, same retry mechanism — at a structurally different domain (CSV data cleaning instead of algorithmic coding tasks) required only two changes: adding `pandas` to the sandbox's dependencies, and conditionally mounting an input data file in the Executor. No changes to the state schema, the graph wiring, or any node's core logic.
@@ -107,12 +117,18 @@ autodev/
 ├── main.py                  # Graph definition, routing, entry point
 ├── state.py                 # AgentState schema
 ├── llm.py                   # LLM client (OpenRouter), env/secrets handling
-├── benchmark.py              # Runs the full benchmark suite, logs results
+├── benchmarks.py            # Runs the 18-task benchmark, grades results via the oracle suite
+├── validate_oracle.py       # LLM-free oracle sanity check (refs pass, planted bugs caught)
 ├── nodes/
 │   ├── planner.py
 │   ├── coder.py
 │   ├── executor.py
 │   └── error.py
+├── tests/
+│   └── oracle/              # Human-written held-out grading tests + shared CSV fixture
+├── reference/
+│   ├── solutions/           # Reference implementations used to validate the oracle
+│   └── mutations/           # Known-bad implementations the oracle must catch
 ├── Dockerfile                # Sandbox image definition
 ├── docker-requirements.txt   # Dependencies installed inside the sandbox
 └── requirements.txt          # Dependencies for the app / deployment
@@ -148,19 +164,25 @@ Run the web UI:
 streamlit run app.py
 ```
 
-Run the benchmark suite:
+Run the benchmark suite (agent run + held-out oracle grading):
 ```bash
-python benchmark.py
+python benchmarks.py
+```
+
+Sanity-check the oracle suite itself — no LLM calls, no API quota:
+```bash
+python validate_oracle.py
 ```
 
 ---
 
 ## Future improvements
 
-- **Externally-supplied test cases** for the benchmark suite, rather than LLM-self-graded tests, to remove the self-contradiction failure mode found in Phase 4
-- **CI/CD** — a GitHub Actions workflow to run the benchmark suite automatically on push
+- **Snapshot self-tests alongside code** — code attempts are snapshotted per run, but the agent's self-written test files aren't; preserving them would keep the full evidence when the two graders disagree
+- **CI/CD** — a GitHub Actions workflow to run `validate_oracle.py` on every push and the benchmark on a schedule
 - **Streaming UI** — show each node's output live as it happens, rather than only after the full run completes
 - **Multi-language support** — extend the Executor's sandbox to compile/run languages beyond Python
+- **Sandboxed hosted demo** — the Community Cloud deployment can't run Docker and uses the host-subprocess fallback; a remote ephemeral sandbox would close that gap
 
 ---
 
