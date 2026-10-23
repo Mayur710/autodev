@@ -75,6 +75,7 @@ def run_benchmarks():
                     first_code = state["code"]      # attempt-1 snapshot
         except Exception as e:
             final_state = {**final_state, "success": False, "error": str(e), "retry_count": -1}
+            print(f"  !! {type(e).__name__}: {str(e)[:300]}")
         elapsed = time.time() - start_time
 
         final_code = final_state.get("code", "")

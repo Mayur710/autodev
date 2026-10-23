@@ -13,4 +13,4 @@ load_dotenv()
 llm = OpenAI(base_url="https://openrouter.ai/api/v1", 
              api_key=get_api_key())
 
-MODEL_NAME = "nvidia/nemotron-3-super-120b-a12b:free"
+MODEL_NAME = "nvidia/nemotron-3.5-lightning:free"
