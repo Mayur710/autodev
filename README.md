@@ -2,7 +2,7 @@
 
 A LangGraph-based autonomous agent that takes a coding or data-cleaning task in plain English, plans its approach, writes code, tests it, executes it in a sandboxed Docker container, and automatically retries with a fixed version of the code if it fails — repeating until the task passes or a retry limit is hit.
 
-**Live demo:** [autodev-knwajj37cvn5ggktt6yifv.streamlit.app](https://autodev-knwajj37cvn5ggktt6yifv.streamlit.app/)
+**Live demo:** [autodev-loopback.streamlit.app](https://autodev-loopback.streamlit.app/)
 
 ---
 
